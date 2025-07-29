@@ -185,8 +185,17 @@ void bubbleSortProfessores(FILE *arq) {
     int qtdProfessores = tamanhoArquivo / sizeof(Professor);  // Calcula o número de professores no arquivo
     fseek(arq, 0, SEEK_SET);  // Volta o ponteiro para o início do arquivo
 
-    Professor professor;
-    Professor professores[qtdProfessores];  // Cria um array para armazenar os professores do arquivo
+    if (qtdProfessores == 0) {
+        printf("Arquivo de professores vazio.\n");
+        return;
+    }
+
+    // Aloca memória dinamicamente para o array de professores
+    Professor *professores = (Professor*)malloc(qtdProfessores * sizeof(Professor));
+    if (professores == NULL) {
+        printf("Erro ao alocar memoria para ordenacao de professores.\n");
+        return;
+    }
 
     // Lê os professores do arquivo
     for (int i = 0; i < qtdProfessores; i++) {
@@ -210,6 +219,9 @@ void bubbleSortProfessores(FILE *arq) {
     for (int i = 0; i < qtdProfessores; i++) {
         fwrite(&professores[i], sizeof(Professor), 1, arq);
     }
+
+    // Libera a memória alocada
+    free(professores);
 
     printf("\nBase de dados de professores ordenada com sucesso!\n");
 }

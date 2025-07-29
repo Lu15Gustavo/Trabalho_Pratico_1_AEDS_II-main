@@ -6,6 +6,7 @@
 # Arquivos temporários
 *.tmp
 *.temp
+*.dat
 
 # Arquivos de log
 *.log

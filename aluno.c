@@ -687,7 +687,12 @@ int encontrarMenorMatricula(ControleParticao *particoes, int numParticoes) {
 }
 
 // Função de intercalação ótima
-void intercalacaoOtima() {
+void intercalacaoOtima(FILE *arquivoDestino) {
+    if (arquivoDestino == NULL) {
+        printf("Erro: arquivo de destino nao fornecido.\n");
+        return;
+    }
+    
     printf("\nIniciando intercalacao otima das particoes...\n");
     
     // Log do início da intercalação
@@ -741,19 +746,11 @@ void intercalacaoOtima() {
         }
     }
     
-    // Criar arquivo de saída
-    FILE *arquivoSaida = fopen("alunos_ordenados.dat", "wb");
-    if (arquivoSaida == NULL) {
-        printf("Erro ao criar arquivo de saida.\n");
-        // Fechar todos os arquivos abertos
-        for (int i = 0; i < numParticoes; i++) {
-            if (particoes[i].arquivo != NULL) {
-                fclose(particoes[i].arquivo);
-            }
-        }
-        free(particoes);
-        return;
-    }
+    // Usar o arquivo de destino fornecido como parâmetro
+    FILE *arquivoSaida = arquivoDestino;
+    
+    // Posiciona no início do arquivo para garantir que escreverá do começo
+    fseek(arquivoSaida, 0, SEEK_SET);
     
     int totalAlunos = 0;
     int comparacoes = 0;
@@ -782,8 +779,10 @@ void intercalacaoOtima() {
     clock_t fim = clock();
     double tempoGasto = (double)(fim - inicio) / CLOCKS_PER_SEC;
     
-    // Fechar todos os arquivos
-    fclose(arquivoSaida);
+    // Força sincronização dos dados com o disco
+    fflush(arquivoSaida);
+    
+    // Fechar todos os arquivos das partições (mas não o arquivo de destino)
     for (int i = 0; i < numParticoes; i++) {
         if (particoes[i].arquivo != NULL) {
             fclose(particoes[i].arquivo);
@@ -796,7 +795,7 @@ void intercalacaoOtima() {
     printf("Total de alunos intercalados: %d\n", totalAlunos);
     printf("Numero de comparacoes: %d\n", comparacoes);
     printf("Tempo de execucao: %.2f ms\n", tempoGasto * 1000);
-    printf("Arquivo gerado: alunos_ordenados.dat\n");
+    printf("Dados gravados no arquivo fornecido.\n");
     
     // Log detalhado do resultado
     snprintf(logMsg, sizeof(logMsg), "Alunos intercalados: %d", totalAlunos);

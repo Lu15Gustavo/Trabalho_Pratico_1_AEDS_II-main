@@ -502,7 +502,13 @@ int main() {
                 break;
             }
             case 22: {  // Intercalação ótima
-                intercalacaoOtima();
+                FILE *arqDestino = fopen("alunos_ordenados.dat", "wb");
+                if (arqDestino != NULL) {
+                    intercalacaoOtima(arqDestino);
+                    fclose(arqDestino);
+                } else {
+                    printf("Erro ao criar arquivo de destino para intercalacao.\n");
+                }
                 break;
             }
             case 23: {  // Verificar arquivo final ordenado

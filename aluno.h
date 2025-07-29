@@ -24,7 +24,7 @@ void matricularAlunoEmDisciplina(FILE *arq, int matriculaAluno, int *codigosDisc
 void registrarLog(char *mensagem);
 void gerarParticoesSelecaoNatural(FILE *arq, int tamanhoMemoria);
 void verificarParticoes();
-void intercalacaoOtima();
+void intercalacaoOtima(FILE *arquivoDestino);
 void verificarArquivoOrdenado();
 void gerarRelatorioOperacoes();
 void limparLog();
