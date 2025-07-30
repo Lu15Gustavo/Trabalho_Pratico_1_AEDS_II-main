@@ -502,12 +502,24 @@ int main() {
                 break;
             }
             case 22: {  // Intercalação ótima
-                FILE *arqDestino = fopen("alunos_ordenados.dat", "wb");
-                if (arqDestino != NULL) {
-                    intercalacaoOtima(arqDestino);
-                    fclose(arqDestino);
+                // Criar arquivo temporário para a intercalação
+                FILE *arqTemp = fopen("alunos_temp.dat", "wb");
+                if (arqTemp != NULL) {
+                    intercalacaoOtima(arqTemp);
+                    fclose(arqTemp);
+                    
+                    // Substituir o arquivo original pelo arquivo ordenado
+                    if (remove("alunos.dat") == 0) {
+                        if (rename("alunos_temp.dat", "alunos.dat") == 0) {
+                            printf("Arquivo alunos.dat foi substituido pela versao ordenada!\n");
+                        } else {
+                            printf("Erro ao renomear arquivo temporario.\n");
+                        }
+                    } else {
+                        printf("Erro ao remover arquivo original.\n");
+                    }
                 } else {
-                    printf("Erro ao criar arquivo de destino para intercalacao.\n");
+                    printf("Erro ao criar arquivo temporario para intercalacao.\n");
                 }
                 break;
             }

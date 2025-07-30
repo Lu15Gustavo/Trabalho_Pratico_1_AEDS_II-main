@@ -539,7 +539,7 @@ void gerarParticoesSelecaoNatural(FILE *arq, int tamanhoMemoria) {
         
         // Cria nome do arquivo da partição
         char nomeArquivo[256];
-        snprintf(nomeArquivo, sizeof(nomeArquivo), "particoes/particao_%d.dat", numParticao);
+        snprintf(nomeArquivo, sizeof(nomeArquivo), "particoes\\particao_%d.dat", numParticao);
         
         FILE *arquivoParticao = fopen(nomeArquivo, "wb");
         if (arquivoParticao == NULL) {
@@ -624,7 +624,7 @@ void verificarParticoes() {
     char nomeArquivo[256];
     
     while (1) {
-        snprintf(nomeArquivo, sizeof(nomeArquivo), "particoes/particao_%d.dat", numParticao);
+        snprintf(nomeArquivo, sizeof(nomeArquivo), "particoes\\particao_%d.dat", numParticao);
         
         FILE *arquivoParticao = fopen(nomeArquivo, "rb");
         if (arquivoParticao == NULL) {
@@ -686,7 +686,59 @@ int encontrarMenorMatricula(ControleParticao *particoes, int numParticoes) {
     return menorIndice;
 }
 
-// Função de intercalação ótima
+// Função auxiliar para intercalar um grupo específico de partições
+void intercalarGrupoParticoes(char **nomesArquivos, int qtdArquivos, FILE *arquivoDestino) {
+    // Alocar memória para controlar as partições do grupo
+    ControleParticao *particoes = (ControleParticao*)malloc(qtdArquivos * sizeof(ControleParticao));
+    if (particoes == NULL) {
+        printf("Erro ao alocar memoria para grupo de particoes.\n");
+        return;
+    }
+    
+    int particoesAbertas = 0;
+    
+    // Abrir partições do grupo
+    for (int i = 0; i < qtdArquivos; i++) {
+        particoes[i].arquivo = fopen(nomesArquivos[i], "rb");
+        particoes[i].numeroParticao = i;
+        
+        if (particoes[i].arquivo != NULL) {
+            particoes[i].temDados = fread(&particoes[i].alunoAtual, sizeof(Aluno), 1, particoes[i].arquivo);
+            particoesAbertas++;
+        } else {
+            particoes[i].temDados = 0;
+            printf("AVISO: Nao foi possivel abrir arquivo %s\n", nomesArquivos[i]);
+        }
+    }
+    
+    // Processo de intercalação do grupo
+    while (1) {
+        int menorIndice = encontrarMenorMatricula(particoes, qtdArquivos);
+        
+        if (menorIndice == -1) {
+            break; // Todas as partições do grupo foram processadas
+        }
+        
+        // Escrever o aluno com menor matrícula no arquivo de destino
+        fwrite(&particoes[menorIndice].alunoAtual, sizeof(Aluno), 1, arquivoDestino);
+        
+        // Ler próximo aluno da partição que forneceu o menor
+        particoes[menorIndice].temDados = fread(&particoes[menorIndice].alunoAtual, 
+                                               sizeof(Aluno), 1, 
+                                               particoes[menorIndice].arquivo);
+    }
+    
+    // Fechar arquivos do grupo
+    for (int i = 0; i < qtdArquivos; i++) {
+        if (particoes[i].arquivo != NULL) {
+            fclose(particoes[i].arquivo);
+        }
+    }
+    
+    free(particoes);
+}
+
+// Função de intercalação ótima com suporte para múltiplas fases
 void intercalacaoOtima(FILE *arquivoDestino) {
     if (arquivoDestino == NULL) {
         printf("Erro: arquivo de destino nao fornecido.\n");
@@ -705,7 +757,7 @@ void intercalacaoOtima(FILE *arquivoDestino) {
     char nomeArquivo[256];
     
     while (1) {
-        snprintf(nomeArquivo, sizeof(nomeArquivo), "particoes/particao_%d.dat", numParticoes);
+        snprintf(nomeArquivo, sizeof(nomeArquivo), "particoes\\particao_%d.dat", numParticoes);
         FILE *teste = fopen(nomeArquivo, "rb");
         if (teste == NULL) {
             break;
@@ -725,86 +777,174 @@ void intercalacaoOtima(FILE *arquivoDestino) {
     snprintf(logMsg, sizeof(logMsg), "Particoes a intercalar: %d", numParticoes);
     registrarLog(logMsg);
     
-    // Alocar memória para controlar as partições
-    ControleParticao *particoes = (ControleParticao*)malloc(numParticoes * sizeof(ControleParticao));
-    if (particoes == NULL) {
-        printf("Erro ao alocar memoria para intercalacao.\n");
-        return;
-    }
-    
-    // Abrir todas as partições e ler o primeiro aluno de cada uma
-    for (int i = 0; i < numParticoes; i++) {
-        snprintf(nomeArquivo, sizeof(nomeArquivo), "particoes/particao_%d.dat", i);
-        particoes[i].arquivo = fopen(nomeArquivo, "rb");
-        particoes[i].numeroParticao = i;
-        
-        if (particoes[i].arquivo != NULL) {
-            particoes[i].temDados = fread(&particoes[i].alunoAtual, sizeof(Aluno), 1, particoes[i].arquivo);
-        } else {
-            particoes[i].temDados = 0;
-            printf("Erro ao abrir particao %d\n", i);
-        }
-    }
-    
-    // Usar o arquivo de destino fornecido como parâmetro
-    FILE *arquivoSaida = arquivoDestino;
-    
-    // Posiciona no início do arquivo para garantir que escreverá do começo
-    fseek(arquivoSaida, 0, SEEK_SET);
-    
-    int totalAlunos = 0;
-    int comparacoes = 0;
+    // Definir estratégia baseada no número de partições
+    const int MAX_ARQUIVOS_SIMULTANEOS = 200; // Limite seguro para Windows
     clock_t inicio = clock();
+    int totalAlunos = 0;
     
-    // Processo de intercalação
-    while (1) {
-        // Encontrar a partição com menor matrícula
-        int menorIndice = encontrarMenorMatricula(particoes, numParticoes);
-        comparacoes++;
+    if (numParticoes <= MAX_ARQUIVOS_SIMULTANEOS) {
+        // Intercalação direta - poucas partições
+        printf("Usando intercalacao direta (%d particoes)...\n", numParticoes);
         
-        if (menorIndice == -1) {
-            break; // Todas as partições foram processadas
+        ControleParticao *particoes = (ControleParticao*)malloc(numParticoes * sizeof(ControleParticao));
+        if (particoes == NULL) {
+            printf("Erro ao alocar memoria para intercalacao.\n");
+            return;
         }
         
-        // Escrever o aluno com menor matrícula no arquivo de saída
-        fwrite(&particoes[menorIndice].alunoAtual, sizeof(Aluno), 1, arquivoSaida);
-        totalAlunos++;
+        // Abrir todas as partições
+        for (int i = 0; i < numParticoes; i++) {
+            snprintf(nomeArquivo, sizeof(nomeArquivo), "particoes\\particao_%d.dat", i);
+            particoes[i].arquivo = fopen(nomeArquivo, "rb");
+            particoes[i].numeroParticao = i;
+            
+            if (particoes[i].arquivo != NULL) {
+                particoes[i].temDados = fread(&particoes[i].alunoAtual, sizeof(Aluno), 1, particoes[i].arquivo);
+            } else {
+                particoes[i].temDados = 0;
+                printf("ERRO: Nao foi possivel abrir particao %d\n", i);
+            }
+        }
         
-        // Ler próximo aluno da partição que forneceu o menor
-        particoes[menorIndice].temDados = fread(&particoes[menorIndice].alunoAtual, 
-                                               sizeof(Aluno), 1, 
-                                               particoes[menorIndice].arquivo);
+        // Posiciona no início do arquivo de destino
+        fseek(arquivoDestino, 0, SEEK_SET);
+        
+        // Processo de intercalação direta
+        while (1) {
+            int menorIndice = encontrarMenorMatricula(particoes, numParticoes);
+            
+            if (menorIndice == -1) {
+                break; // Todas as partições foram processadas
+            }
+            
+            // Escrever o aluno com menor matrícula no arquivo de saída
+            fwrite(&particoes[menorIndice].alunoAtual, sizeof(Aluno), 1, arquivoDestino);
+            totalAlunos++;
+            
+            // Ler próximo aluno da partição que forneceu o menor
+            particoes[menorIndice].temDados = fread(&particoes[menorIndice].alunoAtual, 
+                                                   sizeof(Aluno), 1, 
+                                                   particoes[menorIndice].arquivo);
+        }
+        
+        // Fechar todos os arquivos das partições
+        for (int i = 0; i < numParticoes; i++) {
+            if (particoes[i].arquivo != NULL) {
+                fclose(particoes[i].arquivo);
+            }
+        }
+        
+        free(particoes);
+        
+    } else {
+        // Intercalação por fases - muitas partições
+        printf("Usando intercalacao por fases (%d particoes, max %d simultaneas)...\n", 
+               numParticoes, MAX_ARQUIVOS_SIMULTANEOS);
+        
+        // Criar lista de nomes de arquivos atuais
+        char **arquivosAtuais = (char**)malloc(numParticoes * sizeof(char*));
+        int arquivosRestantes = numParticoes;
+        
+        // Inicializar com partições originais
+        for (int i = 0; i < numParticoes; i++) {
+            arquivosAtuais[i] = (char*)malloc(256 * sizeof(char));
+            snprintf(arquivosAtuais[i], 256, "particoes\\particao_%d.dat", i);
+        }
+        
+        int fase = 0;
+        snprintf(logMsg, sizeof(logMsg), "Iniciando intercalacao multiplas fases");
+        registrarLog(logMsg);
+        
+        // Loop de fases até que reste apenas um arquivo ou poucos arquivos
+        while (arquivosRestantes > MAX_ARQUIVOS_SIMULTANEOS) {
+            fase++;
+            printf("Fase %d: processando %d arquivos...\n", fase, arquivosRestantes);
+            
+            // Calcular quantos novos arquivos serão criados nesta fase
+            int novosArquivos = (arquivosRestantes + MAX_ARQUIVOS_SIMULTANEOS - 1) / MAX_ARQUIVOS_SIMULTANEOS;
+            char **novosNomes = (char**)malloc(novosArquivos * sizeof(char*));
+            
+            int arquivoAtual = 0;
+            
+            // Processar grupos de arquivos
+            for (int grupo = 0; grupo < novosArquivos; grupo++) {
+                int inicio = grupo * MAX_ARQUIVOS_SIMULTANEOS;
+                int fim = ((grupo + 1) * MAX_ARQUIVOS_SIMULTANEOS < arquivosRestantes) ? 
+                         (grupo + 1) * MAX_ARQUIVOS_SIMULTANEOS : arquivosRestantes;
+                int tamanhoGrupo = fim - inicio;
+                
+                // Criar nome do arquivo temporário
+                novosNomes[grupo] = (char*)malloc(256 * sizeof(char));
+                snprintf(novosNomes[grupo], 256, "particoes\\temp_fase_%d_%d.dat", fase, grupo);
+                
+                // Abrir arquivo temporário para escrita
+                FILE *arquivoTemp = fopen(novosNomes[grupo], "wb");
+                if (arquivoTemp == NULL) {
+                    printf("Erro ao criar arquivo temporario %s\n", novosNomes[grupo]);
+                    continue;
+                }
+                
+                // Intercalar este grupo
+                intercalarGrupoParticoes(&arquivosAtuais[inicio], tamanhoGrupo, arquivoTemp);
+                fclose(arquivoTemp);
+                
+                printf("  Grupo %d: %d arquivos -> %s\n", grupo + 1, tamanhoGrupo, novosNomes[grupo]);
+            }
+            
+            // Limpar arquivos da fase anterior (se não for a primeira fase)
+            if (fase > 1) {
+                for (int i = 0; i < arquivosRestantes; i++) {
+                    remove(arquivosAtuais[i]);
+                    free(arquivosAtuais[i]);
+                }
+            } else {
+                // Na primeira fase, apenas liberar strings (não remover partições originais)
+                for (int i = 0; i < arquivosRestantes; i++) {
+                    free(arquivosAtuais[i]);
+                }
+            }
+            
+            // Atualizar para próxima fase
+            free(arquivosAtuais);
+            arquivosAtuais = novosNomes;
+            arquivosRestantes = novosArquivos;
+        }
+        
+        // Intercalação final
+        printf("Fase final: intercalando %d arquivos restantes...\n", arquivosRestantes);
+        fseek(arquivoDestino, 0, SEEK_SET);
+        intercalarGrupoParticoes(arquivosAtuais, arquivosRestantes, arquivoDestino);
+        
+        // Limpeza final
+        for (int i = 0; i < arquivosRestantes; i++) {
+            if (fase > 0) {
+                remove(arquivosAtuais[i]); // Remove arquivos temporários
+            }
+            free(arquivosAtuais[i]);
+        }
+        free(arquivosAtuais);
+        
+        // Contar alunos no arquivo final
+        fseek(arquivoDestino, 0, SEEK_END);
+        totalAlunos = ftell(arquivoDestino) / sizeof(Aluno);
+        fseek(arquivoDestino, 0, SEEK_SET);
     }
     
     clock_t fim = clock();
     double tempoGasto = (double)(fim - inicio) / CLOCKS_PER_SEC;
     
     // Força sincronização dos dados com o disco
-    fflush(arquivoSaida);
-    
-    // Fechar todos os arquivos das partições (mas não o arquivo de destino)
-    for (int i = 0; i < numParticoes; i++) {
-        if (particoes[i].arquivo != NULL) {
-            fclose(particoes[i].arquivo);
-        }
-    }
-    
-    free(particoes);
+    fflush(arquivoDestino);
     
     printf("\nIntercalacao concluida com sucesso!\n");
     printf("Total de alunos intercalados: %d\n", totalAlunos);
-    printf("Numero de comparacoes: %d\n", comparacoes);
     printf("Tempo de execucao: %.2f ms\n", tempoGasto * 1000);
     printf("Dados gravados no arquivo fornecido.\n");
     
     // Log detalhado do resultado
     snprintf(logMsg, sizeof(logMsg), "Alunos intercalados: %d", totalAlunos);
     registrarLog(logMsg);
-    snprintf(logMsg, sizeof(logMsg), "Comparacoes realizadas: %d", comparacoes);
-    registrarLog(logMsg);
     snprintf(logMsg, sizeof(logMsg), "Tempo intercalacao: %.2f ms", tempoGasto * 1000);
-    registrarLog(logMsg);
-    snprintf(logMsg, sizeof(logMsg), "Eficiencia: %.2f comparacoes/aluno", (double)comparacoes / totalAlunos);
     registrarLog(logMsg);
     snprintf(logMsg, sizeof(logMsg), "Taxa processamento: %.0f alunos/ms", totalAlunos / (tempoGasto * 1000));
     registrarLog(logMsg);
@@ -819,9 +959,9 @@ void intercalacaoOtima(FILE *arquivoDestino) {
 
 // Função para verificar se o arquivo final está ordenado
 void verificarArquivoOrdenado() {
-    FILE *arquivo = fopen("alunos_ordenados.dat", "rb");
+    FILE *arquivo = fopen("alunos.dat", "rb");
     if (arquivo == NULL) {
-        printf("Arquivo alunos_ordenados.dat nao encontrado.\n");
+        printf("Arquivo alunos.dat nao encontrado.\n");
         printf("Execute primeiro a intercalacao otima.\n");
         return;
     }

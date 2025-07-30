@@ -23,7 +23,6 @@ void cancelarMatriculaAluno( FILE *arq, int matricula);
 void matricularAlunoEmDisciplina(FILE *arq, int matriculaAluno, int *codigosDisciplinas, int qtdDisciplinas);
 void registrarLog(char *mensagem);
 void gerarParticoesSelecaoNatural(FILE *arq, int tamanhoMemoria);
-void gerarParticoesSelecaoSubstituicao(FILE *arq, int tamanhoMemoria);
 void verificarParticoes();
 void intercalacaoOtima(FILE *arquivoDestino);
 void verificarArquivoOrdenado();
