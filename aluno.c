@@ -55,20 +55,59 @@ void listarAlunos(FILE *arq) {
     }
 
     Aluno aluno;
-    printf("\nListar Alunos\n");
+    int contador = 0;
+    
+    // Cabeçalho principal
+    printf("\n");
+    printf("+==================================================================================+\n");
+    printf("|                                  LISTA DE ALUNOS                                |\n");
+    printf("+==================================================================================+\n");
+    
+    // Verifica se há alunos no arquivo
+    fseek(arq, 0, SEEK_END);
+    long tamanhoArquivo = ftell(arq);
+    int totalAlunos = tamanhoArquivo / sizeof(Aluno);
+    fseek(arq, 0, SEEK_SET);
+    
+    if (totalAlunos == 0) {
+        printf("|                          Nenhum aluno cadastrado                            |\n");
+        printf("+==================================================================================+\n");
+        return;
+    }
+    
+    printf("| Total de alunos cadastrados: %-3d                                              |\n", totalAlunos);
+    printf("+==================================================================================+\n");
     
     // Lê cada aluno do arquivo até o final
     while (fread(&aluno, sizeof(Aluno), 1, arq)) {
-        printf("Nome: %s | Matricula: %d | E-mail: %s\n", aluno.nome, aluno.matricula, aluno.email);
-        printf("Disciplinas matriculadas: ");
+        contador++;
+        
+        printf("| %-3d | %-25s | Matric: %-8d | %-25s |\n", 
+               contador, aluno.nome, aluno.matricula, aluno.email);
         
         // Exibe as disciplinas do aluno
-        for (int j = 0; j < aluno.qtdDisciplinas; j++) {
-            printf("%d", aluno.disciplinas[j]);
-            if (j < aluno.qtdDisciplinas - 1) printf(", ");
+        printf("|     | Disciplinas: ");
+        if (aluno.qtdDisciplinas > 0) {
+            for (int j = 0; j < aluno.qtdDisciplinas; j++) {
+                printf("%d", aluno.disciplinas[j]);
+                if (j < aluno.qtdDisciplinas - 1) printf(", ");
+            }
+        } else {
+            printf("Nenhuma disciplina cadastrada");
         }
-        printf("\n");
+        
+        // Completa a linha até o final (82 caracteres - 18 já usados = 64 espaços)
+        printf("%*s|\n", 64, "");
+        
+        // Linha separadora entre alunos (exceto no último)
+        if (contador < totalAlunos) {
+            printf("+-----+---------------------------+--------------+---------------------------+\n");
+        }
     }
+    
+    // Rodapé
+    printf("+==================================================================================+\n");
+    printf("Total de alunos listados: %d\n", contador);
 }
 
 
@@ -286,7 +325,7 @@ void bubbleSortAlunos(FILE *arq) {
         }
         
         if ((i + 1) % 10 == 0) {
-            printf("Passada %d concluida...\n", i + 1);
+            printf("Verificacao %d concluida...\n", i + 1);
         }
     }
     
@@ -631,7 +670,7 @@ void verificarParticoes() {
             break; // Não há mais partições
         }
         
-        printf("\nPartição %d (%s):\n", numParticao, nomeArquivo);
+        printf("\nParticao %d (%s):\n", numParticao, nomeArquivo);
         
         Aluno aluno;
         int contador = 0;
@@ -657,9 +696,9 @@ void verificarParticoes() {
     }
     
     if (numParticao == 0) {
-        printf("Nenhuma particao encontrada. Execute primeiro a geracao de partições.\n");
+        printf("Nenhuma particao encontrada. Execute primeiro a geracao de particoes.\n");
     } else {
-        printf("\nTotal de partições verificadas: %d\n", numParticao);
+        printf("\nTotal de particoes verificadas: %d\n", numParticao);
     }
 }
 
