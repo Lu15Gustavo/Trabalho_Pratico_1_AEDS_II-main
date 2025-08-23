@@ -40,12 +40,17 @@ void listarProfessores(FILE *arq) {
     }
 
     Professor professor;
-    printf("\nListar Professores\n");
-
-    // Lê os professores do arquivo e os exibe
+    int count = 0;
+    printf("\n+==================================================================================+\n");
+    printf("|                              LISTA DE PROFESSORES                              |\n");
+    printf("+==================================================================================+\n");
+    printf("| %-4s | %-25s | %-10s | %-20s | %-10s |\n", "#", "Nome", "Matricula", "Disciplina", "Salario");
+    printf("+-----+---------------------------+------------+----------------------+------------+\n");
     while (fread(&professor, sizeof(Professor), 1, arq)) {
-        printf("Nome: %s | Matricula: %d | Disciplina: %s | Salario: %.2f\n", professor.nome, professor.matricula, professor.disciplina, professor.salario);
+        printf("| %-4d | %-25s | %-10d | %-20s | R$ %-8.2f |\n", ++count, professor.nome, professor.matricula, professor.disciplina, professor.salario);
     }
+    printf("+==================================================================================+\n");
+    printf("Total de professores listados: %d\n", count);
 }
 
 

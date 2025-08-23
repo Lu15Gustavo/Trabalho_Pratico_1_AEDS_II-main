@@ -19,7 +19,7 @@ int buscaBinariaAluno(FILE *arq, int matricula);
 void editarAluno(FILE *arq, int matricula);
 int buscaSequencialAluno(FILE *arq, int matricula);
 void bubbleSortAlunos(FILE *arq);
-void cancelarMatriculaAluno( FILE *arq, int matricula);
+void cancelarMatriculaAluno(FILE *arq, int matricula);
 void matricularAlunoEmDisciplina(FILE *arq, int matriculaAluno, int *codigosDisciplinas, int qtdDisciplinas);
 void registrarLog(char *mensagem);
 void gerarParticoesSelecaoNatural(FILE *arq, int tamanhoMemoria);
@@ -28,5 +28,21 @@ void intercalacaoOtima(FILE *arquivoDestino);
 void verificarArquivoOrdenado();
 void gerarRelatorioOperacoes();
 void limparLog();
+
+// ====== Hash por Divisão com Encadeamento Exterior (persistente em arquivo) ======
+#define TAMANHO_TABELA_HASH_ENC 101
+#define OFFSET_INVALIDO -1L
+
+typedef struct NoAluno {
+    Aluno aluno;
+    long prox; // offset do próximo nó no arquivo, ou -1
+} NoAluno;
+
+// Função de hash por divisão
+int hashDivisaoEncadeado(int matricula);
+void inicializarTabelaHashEncArquivo(FILE *arq);
+void inserirAlunoHashEncArquivo(FILE *arq, Aluno aluno);
+int buscarAlunoHashEncArquivo(FILE *arq, int matricula, Aluno *alunoEncontrado);
+void removerAlunoHashEncArquivo(FILE *arq, int matricula);
 
 #endif

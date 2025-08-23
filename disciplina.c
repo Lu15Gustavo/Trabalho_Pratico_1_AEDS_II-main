@@ -32,12 +32,18 @@ void listarDisciplinas(FILE *arq) {
     }
 
     Disciplina disciplina;
-    printf("\nListar Disciplinas\n");
-
-    // Lê as disciplinas do arquivo e as exibe
+    int count = 0;
+    printf("\n+==========================================================================+\n");
+    printf("|                         LISTA DE DISCIPLINAS                            |\n");
+    printf("+==========================================================================+\n");
+    printf("| %-4s | %-25s | %-25s |\n", "Cod", "Nome", "Professor");
+    printf("+------+---------------------------+---------------------------+\n");
     while (fread(&disciplina, sizeof(Disciplina), 1, arq)) {
-        printf("Codigo: %d | Nome: %s | Professor: %s\n", disciplina.codigo, disciplina.nome, disciplina.professor);
+        printf("| %-4d | %-25s | %-25s |\n", disciplina.codigo, disciplina.nome, disciplina.professor);
+        count++;
     }
+    printf("+==========================================================================+\n");
+    printf("Total de disciplinas listadas: %d\n", count);
 }
 
 

@@ -13,61 +13,63 @@ extern Disciplina disciplinas[]; // Adiciona a declaração externa do vetor de 
 
 // Variáveis globais removidas - trabalharemos apenas com arquivos (memória secundária)
 
+// Registra uma mensagem no arquivo de log
 void registrarLog(char *mensagem) {
-    FILE *logFile = fopen("buscas.log", "a"); // Abre o arquivo log em modo de adição
+    FILE *logFile = fopen("buscas.log", "a"); // Abre o arquivo de log em modo de adição
     if (logFile != NULL) {
-        fprintf(logFile, "%s\n", mensagem); // Grava a mensagem no arquivo
-        fclose(logFile); // Fecha o arquivo
+        fprintf(logFile, "%s\n", mensagem); // Escreve a mensagem no arquivo
+        fclose(logFile); // Fecha o arquivo de log
     } else {
-        printf("Erro ao abrir o arquivo de log.\n");
+        printf("Erro ao abrir o arquivo de log.\n"); // Exibe erro se não conseguir abrir
     }
 }
+// Cadastra um novo aluno no arquivo
 void cadastrarAluno(FILE *arq) {
     if (arq == NULL) {
-        printf("Erro ao abrir o arquivo de alunos.\n");
+        printf("Erro ao abrir o arquivo de alunos.\n"); // Verifica se o arquivo foi aberto corretamente
         return;
     }
 
-    Aluno aluno;
+    Aluno aluno; // Cria uma estrutura Aluno
     printf("\nCadastrar Aluno\n");
     printf("Nome: ");
-    scanf("%s", aluno.nome);
+    scanf("%s", aluno.nome); // Lê o nome do aluno
     printf("Matricula: ");
-    scanf("%d", &aluno.matricula);
+    scanf("%d", &aluno.matricula); // Lê a matrícula
     printf("Disciplina: ");
-    scanf("%s", aluno.disciplina);
+    scanf("%s", aluno.disciplina); // Lê a disciplina
     printf("Email: ");
-    scanf("%s", aluno.email);
+    scanf("%s", aluno.email); // Lê o email
     aluno.qtdDisciplinas = 0; // Inicializa o número de disciplinas do aluno
 
-    // Grava o aluno no arquivo de forma binária
-    fwrite(&aluno, sizeof(Aluno), 1, arq);
+    fwrite(&aluno, sizeof(Aluno), 1, arq); // Grava o aluno no arquivo
 
     printf("Aluno cadastrado com sucesso!\n");
 }
 
 
 
+// Lista todos os alunos presentes no arquivo
 void listarAlunos(FILE *arq) {
     if (arq == NULL) {
-        printf("Erro ao abrir o arquivo de alunos.\n");
+        printf("Erro ao abrir o arquivo de alunos.\n"); // Verifica se o arquivo foi aberto corretamente
         return;
     }
 
-    Aluno aluno;
-    int contador = 0;
+    Aluno aluno; // Estrutura para leitura
+    int contador = 0; // Contador de alunos
     
-    // Cabeçalho principal
+    // Imprime o cabeçalho da tabela
     printf("\n");
     printf("+==================================================================================+\n");
     printf("|                                  LISTA DE ALUNOS                                |\n");
     printf("+==================================================================================+\n");
     
     // Verifica se há alunos no arquivo
-    fseek(arq, 0, SEEK_END);
-    long tamanhoArquivo = ftell(arq);
-    int totalAlunos = tamanhoArquivo / sizeof(Aluno);
-    fseek(arq, 0, SEEK_SET);
+    fseek(arq, 0, SEEK_END); // Vai para o final do arquivo
+    long tamanhoArquivo = ftell(arq); // Obtém o tamanho do arquivo
+    int totalAlunos = tamanhoArquivo / sizeof(Aluno); // Calcula o total de alunos
+    fseek(arq, 0, SEEK_SET); // Volta para o início
     
     if (totalAlunos == 0) {
         printf("|                          Nenhum aluno cadastrado                            |\n");
@@ -80,24 +82,23 @@ void listarAlunos(FILE *arq) {
     
     // Lê cada aluno do arquivo até o final
     while (fread(&aluno, sizeof(Aluno), 1, arq)) {
-        contador++;
+        contador++; // Incrementa o contador
         
         printf("| %-3d | %-25s | Matric: %-8d | %-25s |\n", 
-               contador, aluno.nome, aluno.matricula, aluno.email);
+               contador, aluno.nome, aluno.matricula, aluno.email); // Imprime dados principais
         
         // Exibe as disciplinas do aluno
         printf("|     | Disciplinas: ");
         if (aluno.qtdDisciplinas > 0) {
             for (int j = 0; j < aluno.qtdDisciplinas; j++) {
-                printf("%d", aluno.disciplinas[j]);
+                printf("%d", aluno.disciplinas[j]); // Imprime cada disciplina
                 if (j < aluno.qtdDisciplinas - 1) printf(", ");
             }
         } else {
-            printf("Nenhuma disciplina cadastrada");
+            printf("Nenhuma disciplina cadastrada"); // Caso não tenha disciplinas
         }
         
-        // Completa a linha até o final (82 caracteres - 18 já usados = 64 espaços)
-        printf("%*s|\n", 64, "");
+        printf("%*s|\n", 64, ""); // Completa a linha
         
         // Linha separadora entre alunos (exceto no último)
         if (contador < totalAlunos) {
@@ -1080,4 +1081,119 @@ void limparLog() {
     } else {
         printf("Erro ao limpar o arquivo de log.\n");
     }
+}
+
+
+// ================= HASHING POR DIVISÃO COM ENCADEAMENTO EXTERIOR (ARQUIVO) ===================
+#define TAMANHO_TABELA_HASH_ENC 101
+#define OFFSET_INVALIDO -1L
+
+// Função de hash por divisão
+int hashDivisaoEncadeado(int matricula) {
+    int h = matricula % TAMANHO_TABELA_HASH_ENC;
+    if (h < 0) {
+        h = h + TAMANHO_TABELA_HASH_ENC;
+    }
+    return h;
+}
+
+// Inicializa o arquivo de hash encadeado exterior
+void inicializarTabelaHashEncArquivo(FILE *arq) {
+    if (!arq) return;
+    long offsets[TAMANHO_TABELA_HASH_ENC];
+    for (int i = 0; i < TAMANHO_TABELA_HASH_ENC; i++) offsets[i] = OFFSET_INVALIDO;
+    fseek(arq, 0, SEEK_SET);
+    fwrite(offsets, sizeof(long), TAMANHO_TABELA_HASH_ENC, arq);
+    fflush(arq);
+}
+
+// Insere aluno no hash encadeado exterior (arquivo)
+void inserirAlunoHashEncArquivo(FILE *arq, Aluno aluno) {
+    if (!arq) return;
+    int idx = hashDivisaoEncadeado(aluno.matricula);
+    long head;
+    fseek(arq, idx * sizeof(long), SEEK_SET);
+    fread(&head, sizeof(long), 1, arq);
+    // Busca duplicidade
+    long atual = head;
+    NoAluno no;
+    while (atual != OFFSET_INVALIDO) {
+        fseek(arq, atual, SEEK_SET);
+        fread(&no, sizeof(NoAluno), 1, arq);
+        if (no.aluno.matricula == aluno.matricula) {
+            printf("Já existe aluno com matrícula %d na tabela hash encadeada (arquivo).\n", aluno.matricula);
+            return;
+        }
+        atual = no.prox;
+    }
+    // Insere no início da lista
+    fseek(arq, 0, SEEK_END);
+    long novo_offset = ftell(arq);
+    NoAluno novoNo;
+    novoNo.aluno = aluno;
+    novoNo.prox = head;
+    fwrite(&novoNo, sizeof(NoAluno), 1, arq);
+    // Atualiza ponteiro do slot
+    fseek(arq, idx * sizeof(long), SEEK_SET);
+    fwrite(&novo_offset, sizeof(long), 1, arq);
+    fflush(arq);
+    printf("Aluno inserido na tabela hash encadeada (arquivo, slot %d).\n", idx);
+}
+
+// Busca aluno no hash encadeado exterior (arquivo)
+int buscarAlunoHashEncArquivo(FILE *arq, int matricula, Aluno *alunoEncontrado) {
+    if (!arq) return 0;
+    int idx = hashDivisaoEncadeado(matricula);
+    long head;
+    fseek(arq, idx * sizeof(long), SEEK_SET);
+    fread(&head, sizeof(long), 1, arq);
+    long atual = head;
+    NoAluno no;
+    while (atual != OFFSET_INVALIDO) {
+        fseek(arq, atual, SEEK_SET);
+        fread(&no, sizeof(NoAluno), 1, arq);
+        if (no.aluno.matricula == matricula) {
+            if (alunoEncontrado) *alunoEncontrado = no.aluno;
+            return 1;
+        }
+        atual = no.prox;
+    }
+    return 0;
+}
+
+// Remove aluno do hash encadeado exterior (arquivo)
+void removerAlunoHashEncArquivo(FILE *arq, int matricula) {
+    if (!arq) return;
+    int idx = hashDivisaoEncadeado(matricula);
+    long head;
+    fseek(arq, idx * sizeof(long), SEEK_SET);
+    fread(&head, sizeof(long), 1, arq);
+    long atual = head, anterior = OFFSET_INVALIDO;
+    NoAluno no;
+    while (atual != OFFSET_INVALIDO) {
+        fseek(arq, atual, SEEK_SET);
+        fread(&no, sizeof(NoAluno), 1, arq);
+        if (no.aluno.matricula == matricula) {
+            // Remove nó
+            if (anterior == OFFSET_INVALIDO) {
+                // Remove do início
+                fseek(arq, idx * sizeof(long), SEEK_SET);
+                fwrite(&no.prox, sizeof(long), 1, arq);
+            } else {
+                // Remove do meio/fim
+                NoAluno anteriorNo;
+                fseek(arq, anterior, SEEK_SET);
+                fread(&anteriorNo, sizeof(NoAluno), 1, arq);
+                anteriorNo.prox = no.prox;
+                fseek(arq, anterior, SEEK_SET);
+                fwrite(&anteriorNo, sizeof(NoAluno), 1, arq);
+            }
+            fflush(arq);
+            printf("Aluno de matrícula %d removido da tabela hash encadeada (arquivo, slot %d).\n", matricula, idx);
+            return;
+        }
+        anterior = atual;
+        atual = no.prox;
+    }
+    printf("Aluno de matrícula %d não encontrado na tabela hash encadeada (arquivo).\n", matricula);
 }

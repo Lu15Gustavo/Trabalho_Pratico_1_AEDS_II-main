@@ -31,148 +31,239 @@ void embaralhar(int *vet, int tam) {
 }
 
 void criarBase(int tam) {
-    printf("Criando base de dados com %d alunos...\n", tam);
+    printf("Criando base de dados com %d alunos (HASH e DAT)...\n", tam);
     clock_t inicio = clock();
-    
-    // Cria arquivo diretamente
-    FILE *arq = fopen("alunos.dat", "wb");
-    if (arq == NULL) {
-        printf("Erro ao criar arquivo de alunos.\n");
+
+    // Inicializa o arquivo hash
+    FILE *arqHash = fopen("alunos_hash.dat", "wb+");
+    if (arqHash == NULL) {
+        printf("Erro ao criar arquivo de hash encadeado.\n");
         return;
     }
-    
+    inicializarTabelaHashEncArquivo(arqHash);
+
+    // Inicializa o arquivo tradicional
+    FILE *arqDat = fopen("alunos.dat", "wb+");
+    if (arqDat == NULL) {
+        printf("Erro ao criar arquivo alunos.dat.\n");
+        fclose(arqHash);
+        return;
+    }
+
     int i;
     int *vet = (int*)malloc(tam * sizeof(int));
     if (vet == NULL) {
         printf("Erro ao alocar memoria para embaralhamento.\n");
-        fclose(arq);
+        fclose(arqHash);
+        fclose(arqDat);
         return;
     }
 
-    // Preencher o vetor com índices sequenciais
-    for (i = 0; i < tam; i++) {
-        vet[i] = i;
-    }
-
-    // Embaralhar os índices
+    // Embaralhar ordem dos registros
+    for (i = 0; i < tam; i++) vet[i] = i;
     embaralhar(vet, tam);
 
-    // Criar e gravar dados de alunos embaralhados diretamente no arquivo
+    // Gerar nomes aleatórios para professores
+    char nomesProf[10][20] = {"Ana","Bruno","Carlos","Diana","Eduardo","Fernanda","Gustavo","Helena","Igor","Julia"};
+    // Gerar nomes aleatórios para alunos
+    char nomesAlu[10][20] = {"Lucas","Marina","Pedro","Rafaela","Thiago","Beatriz","Vinicius","Sofia","Caio","Lara"};
+    // Gerar nomes aleatórios para disciplinas
+    char nomesDisc[10][20] = {"Matematica","Portugues","Historia","Geografia","Fisica","Quimica","Biologia","Ingles","Artes","EdFisica"};
+
+    // Professores aleatórios e embaralhados
+    int *vetProf = (int*)malloc(tam * sizeof(int));
+    for (i = 0; i < tam; i++) vetProf[i] = i;
+    embaralhar(vetProf, tam);
+    FILE *arqProf = fopen("professores.dat", "wb+");
+    if (arqProf != NULL) {
+        for (i = 0; i < tam; i++) {
+            Professor prof;
+            int idx = vetProf[i];
+            snprintf(prof.nome, sizeof(prof.nome), "%s%d", nomesProf[rand()%10], rand()%1000);
+            prof.matricula = 5000 + idx;
+            snprintf(prof.disciplina, sizeof(prof.disciplina), "%s", nomesDisc[rand()%10]);
+            prof.salario = 3000.0f + (rand()%1000);
+            fwrite(&prof, sizeof(Professor), 1, arqProf);
+        }
+        fclose(arqProf);
+        printf("Base de professores criada com sucesso!\n");
+    } else {
+        printf("Erro ao criar professores.dat\n");
+    }
+    free(vetProf);
+
+    // Disciplinas aleatórias e embaralhadas
+    int *vetDisc = (int*)malloc(tam * sizeof(int));
+    for (i = 0; i < tam; i++) vetDisc[i] = i;
+    embaralhar(vetDisc, tam);
+    FILE *arqDisc = fopen("disciplinas.dat", "wb+");
+    if (arqDisc != NULL) {
+        for (i = 0; i < tam; i++) {
+            Disciplina disc;
+            int idx = vetDisc[i];
+            disc.codigo = 100 + idx;
+            snprintf(disc.nome, sizeof(disc.nome), "%s%d", nomesDisc[rand()%10], rand()%100);
+            snprintf(disc.professor, sizeof(disc.professor), "%s%d", nomesProf[rand()%10], rand()%1000);
+            fwrite(&disc, sizeof(Disciplina), 1, arqDisc);
+        }
+        fclose(arqDisc);
+        printf("Base de disciplinas criada com sucesso!\n");
+    } else {
+        printf("Erro ao criar disciplinas.dat\n");
+    }
+    free(vetDisc);
+
+    // Alunos aleatórios e embaralhados
     for (i = 0; i < tam; i++) {
         Aluno aluno;
-        int idx = vet[i];  // O índice embaralhado
-        
-        snprintf(aluno.nome, sizeof(aluno.nome), "Aluno%d", i + 1);
-        aluno.matricula = 1000 + idx;  // Usar o índice embaralhado para matrícula
-        snprintf(aluno.disciplina, sizeof(aluno.disciplina), "Disciplina%d", i + 1);
-        snprintf(aluno.email, sizeof(aluno.email), "aluno%d@dominio.com", i + 1);
-        
+        int idx = vet[i];
+        snprintf(aluno.nome, sizeof(aluno.nome), "%s%d", nomesAlu[rand()%10], rand()%1000);
+        aluno.matricula = 1000 + idx;
+        snprintf(aluno.disciplina, sizeof(aluno.disciplina), "%s", nomesDisc[rand()%10]);
+        snprintf(aluno.email, sizeof(aluno.email), "%s%d@dominio.com", nomesAlu[rand()%10], rand()%1000);
         aluno.qtdDisciplinas = 1;
-        aluno.disciplinas[0] = 100 + i;
-        
-        // Grava diretamente no arquivo
-        fwrite(&aluno, sizeof(Aluno), 1, arq);
+        aluno.disciplinas[0] = 100 + (rand()%tam);
+        // Grava no hash
+        inserirAlunoHashEncArquivo(arqHash, aluno);
+        // Grava no arquivo tradicional
+        fwrite(&aluno, sizeof(Aluno), 1, arqDat);
+        int slot = hashDivisaoEncadeado(aluno.matricula);
+        printf("Gaveta %d: %s | Matricula: %d | Email: %s\n", slot, aluno.nome, aluno.matricula, aluno.email);
     }
-    
-    fclose(arq);
-    
+    free(vet);
+    fclose(arqHash);
+    fclose(arqDat);
+
     clock_t fim = clock();
     double tempoGasto = (double)(fim - inicio) / CLOCKS_PER_SEC;
-    
-    printf("Base de dados criada com sucesso!\n");
+    printf("Base de dados (HASH e DAT) criada com sucesso!\n");
     printf("Total de alunos: %d\n", tam);
     printf("Tempo de criacao: %.2f ms\n", tempoGasto * 1000);
-    printf("Arquivo: alunos.dat\n");
-    
-    // Log da operação
+    printf("Arquivos: alunos_hash.dat e alunos.dat\n");
     char logMsg[256];
-    snprintf(logMsg, sizeof(logMsg), "Criacao Base: %d alunos, %.2f ms", tam, tempoGasto * 1000);
+    snprintf(logMsg, sizeof(logMsg), "Criacao Base HASH+DAT: %d alunos, %.2f ms", tam, tempoGasto * 1000);
     registrarLog(logMsg);
-    
-    // Criar dados de professores embaralhados
-    int *vetProf = (int*)malloc(tam * sizeof(int));
-    if (vetProf == NULL) {
-        printf("Erro ao alocar memoria para professores.\n");
-        free(vet);  // Libera vet antes de retornar
-        return;
-    }
-    
-    // Preencher e embaralhar índices para professores
-    for (i = 0; i < tam; i++) {
-        vetProf[i] = i;
-    }
-    embaralhar(vetProf, tam);
-    
-    for (i = 0; i < tam; i++) {
-        int idx = vetProf[i];
-        snprintf(professores[idx].nome, sizeof(professores[idx].nome), "Professor%d", i + 1);
-        professores[idx].matricula = 2000 + i;
-        snprintf(professores[idx].disciplina, sizeof(professores[idx].disciplina), "Disciplina%d", i + 1);
-        professores[idx].salario = 3000 + (i * 100);
-    }
-    
-    qtdProfessores = tam;
-
-    // Abrir o arquivo para salvar os dados
-    arq = fopen("professores.dat", "wb");
-    if (arq != NULL) {
-        salvarProfessores(arq);  // Salva os professores
-        fclose(arq);
-    } else {
-        printf("Erro ao abrir professores.dat para salvar.\n");
-    }
-
-    // Criar dados de disciplinas embaralhadas
-    int *vetDisc = (int*)malloc(tam * sizeof(int));
-    if (vetDisc == NULL) {
-        printf("Erro ao alocar memoria para disciplinas.\n");
-        return;
-    }
-    
-    // Preencher e embaralhar índices para disciplinas
-    for (i = 0; i < tam; i++) {
-        vetDisc[i] = i;
-    }
-    embaralhar(vetDisc, tam);
-    
-    for (i = 0; i < tam; i++) {
-        int idx = vetDisc[i];
-        disciplinas[idx].codigo = 100 + i;
-        snprintf(disciplinas[idx].nome, sizeof(disciplinas[idx].nome), "Disciplina%d", i + 1);
-        snprintf(disciplinas[idx].professor, sizeof(disciplinas[idx].professor), "Professor%d", i + 1);
-    }
-    
-    // Libera todos os vetores
-    free(vet);
-    free(vetProf);
-    free(vetDisc);
-    qtdDisciplinas = tam;
-
-    // Abrir o arquivo para salvar os dados
-    arq = fopen("disciplinas.dat", "wb");
-    if (arq != NULL) {
-        salvarDisciplinas(arq);  // Salva as disciplinas
-        fclose(arq);
-    } else {
-        printf("Erro ao abrir disciplinas.dat para salvar.\n");
-    }
-
-    printf("\nBase de dados criada com sucesso!\n");
+    // Removido bloco duplicado de geração sequencial de professores e disciplinas
 }
-
-
-// Função para imprimir base de dados de alunos, professores e disciplinas
-void imprimirBase() {
-    printf("\nImprimindo a base de dados...\n");
-
-    // Listar alunos
-    listarAlunos(arq);
-
-    // Listar professores
-    listarProfessores(arq);
-
-    // Listar disciplinas
-    listarDisciplinas(arq);
+void menuHash() {
+    int op;
+    do {
+        printf("\nMENU HASH\n");
+        printf("1. Inicializar Hash Encadeado (Arquivo)\n");
+        printf("2. Inserir Aluno (Hash Encadeado/Arquivo)\n");
+        printf("3. Buscar Aluno (Hash Encadeado/Arquivo)\n");
+        printf("4. Remover Aluno (Hash Encadeado/Arquivo)\n");
+        printf("5. Listar Alunos (Hash Encadeado/Arquivo)\n");
+        printf("0. Voltar\n");
+        printf("Escolha uma opcao: ");
+        scanf("%d", &op);
+        switch (op) {
+            case 1: {
+                char confirma;
+                printf("ATENCAO: Esta operacao vai apagar TODOS os alunos do hash! Deseja continuar? (s/n): ");
+                scanf(" %c", &confirma);
+                if (confirma == 's' || confirma == 'S') {
+                    FILE *arqHash = fopen("alunos_hash.dat", "wb+");
+                    if (arqHash != NULL) {
+                        inicializarTabelaHashEncArquivo(arqHash);
+                        fclose(arqHash);
+                        printf("Arquivo de hash encadeado inicializado com sucesso!\n");
+                    } else {
+                        printf("Erro ao criar arquivo de hash encadeado.\n");
+                    }
+                } else {
+                    printf("Operacao cancelada. O hash NAO foi apagado.\n");
+                }
+                break;
+            }
+            case 2: {
+                Aluno aluno;
+                printf("Nome: ");
+                scanf("%s", aluno.nome);
+                printf("Matricula: ");
+                scanf("%d", &aluno.matricula);
+                printf("Disciplina: ");
+                scanf("%s", aluno.disciplina);
+                printf("Email: ");
+                scanf("%s", aluno.email);
+                aluno.qtdDisciplinas = 0;
+                FILE *arqHash = fopen("alunos_hash.dat", "rb+");
+                if (arqHash != NULL) {
+                    inserirAlunoHashEncArquivo(arqHash, aluno);
+                    int slot = hashDivisaoEncadeado(aluno.matricula);
+                    printf("Gaveta %d: %s | Matricula: %d | Email: %s\n", slot, aluno.nome, aluno.matricula, aluno.email);
+                    fclose(arqHash);
+                } else {
+                    printf("Arquivo de hash encadeado nao encontrado. Inicialize primeiro!\n");
+                }
+                break;
+            }
+            case 3: {
+                int matricula;
+                printf("Digite a matricula do aluno para buscar: ");
+                scanf("%d", &matricula);
+                FILE *arqHash = fopen("alunos_hash.dat", "rb");
+                if (arqHash != NULL) {
+                    Aluno aluno;
+                    if (buscarAlunoHashEncArquivo(arqHash, matricula, &aluno)) {
+                        int slot = hashDivisaoEncadeado(matricula);
+                        printf("Aluno encontrado na gaveta %d: %s | Email: %s\n", slot, aluno.nome, aluno.email);
+                    } else {
+                        printf("Aluno nao encontrado na tabela hash encadeada (arquivo).\n");
+                    }
+                    fclose(arqHash);
+                } else {
+                    printf("Arquivo de hash encadeado nao encontrado. Inicialize primeiro!\n");
+                }
+                break;
+            }
+            case 4: {
+                int matricula;
+                printf("Digite a matricula do aluno para remover: ");
+                scanf("%d", &matricula);
+                FILE *arqHash = fopen("alunos_hash.dat", "rb+");
+                if (arqHash != NULL) {
+                    removerAlunoHashEncArquivo(arqHash, matricula);
+                    fclose(arqHash);
+                } else {
+                    printf("Arquivo de hash encadeado nao encontrado. Inicialize primeiro!\n");
+                }
+                break;
+            }
+            case 5: {
+                FILE *arqHash = fopen("alunos_hash.dat", "rb");
+                if (arqHash != NULL) {
+                    printf("\n--- Listagem de alunos na tabela hash encadeada (arquivo) ---\n");
+                    for (int i = 0; i < TAMANHO_TABELA_HASH_ENC; i++) {
+                        long head;
+                        fseek(arqHash, i * sizeof(long), SEEK_SET);
+                        fread(&head, sizeof(long), 1, arqHash);
+                        long atual = head;
+                        NoAluno no;
+                        if (atual != OFFSET_INVALIDO) {
+                            printf("Gaveta %d:\n", i);
+                            while (atual != OFFSET_INVALIDO) {
+                                fseek(arqHash, atual, SEEK_SET);
+                                fread(&no, sizeof(NoAluno), 1, arqHash);
+                                printf("  Nome: %s | Matricula: %d | Email: %s\n", no.aluno.nome, no.aluno.matricula, no.aluno.email);
+                                atual = no.prox;
+                            }
+                        }
+                    }
+                    fclose(arqHash);
+                } else {
+                    printf("Arquivo de hash encadeado nao encontrado. Inicialize primeiro!\n");
+                }
+                break;
+            }
+            case 0: {
+                printf("Voltando ao menu principal...\n");
+                break;
+            }
+            default:
+                printf("Opcao invalida!\n");
+        }
+    } while (op != 0);
 }
 
 int main() {
@@ -199,19 +290,28 @@ int main() {
         printf("16. Trocar Professor de Disciplina\n");
         printf("17. Cancelar Matricula de Aluno\n"); 
         printf("18. Matricular Aluno em uma ou mais disciplina\n"); 
-        printf("19. Criar Base de Dados\n");
+        printf("19. Criar Base de Dados HASH\n");
         printf("20. Gerar Particoes com Selecao Natural\n");
         printf("21. Verificar Conteudo das Particoes\n");
         printf("22. Intercalacao Otima\n");
         printf("23. Verificar Arquivo Final Ordenado\n");
         printf("24. Gerar Relatorio Detalhado\n");
         printf("25. Limpar Arquivo de Log\n");
-        printf("\n");
+        printf("26. MENU HASH\n");
         printf("0. Sair\n");
         printf("Escolha uma opcao: ");
         scanf("%d", &escolha);
-        
         switch (escolha) {
+            case 26:
+                menuHash();
+                break;
+            case 19: {
+                int qtd;
+                printf("Digite a quantidade de alunos para a base: ");
+                scanf("%d", &qtd);
+                criarBase(qtd);
+                break;
+            }
             case 1: {
                 FILE *arqProf = fopen("professores.dat", "ab");
                 if (arqProf != NULL) {
@@ -476,13 +576,6 @@ int main() {
                 }
                 break;
             }
-            case 19: {  // Nova opção no menu
-                int tam;
-                printf("Digite a quantidade de registros para a base de dados: ");
-                scanf("%d", &tam);
-                criarBase(tam);  // Chama a função para criar a base
-                break; 
-                }
             case 20: {  // Gerar partições com seleção natural
                 int tamanhoMemoria;
                 printf("Digite o tamanho da memória (número de alunos por partição): ");
@@ -535,13 +628,13 @@ int main() {
                 limparLog();
                 break;
             }
+            // Removido o case 26 do menu principal. Inicialização do hash agora é feita pelo menuHash().
+            // Removidos os cases 27-30 do menu principal. Agora tudo é pelo menuHash().
             case 0:{
-                // Sair do programa
                 printf("Saindo do programa...\n");
                 break;    
             }      
-        }   
+        }
     } while (escolha != 0);
-
     return 0;
 }
