@@ -1085,7 +1085,7 @@ void limparLog() {
 
 
 // ================= HASHING POR DIVISÃO COM ENCADEAMENTO EXTERIOR (ARQUIVO) ===================
-#define TAMANHO_TABELA_HASH_ENC 101
+#define TAMANHO_TABELA_HASH_ENC 50
 #define OFFSET_INVALIDO -1L
 
 // Função de hash por divisão
@@ -1099,88 +1099,88 @@ int hashDivisaoEncadeado(int matricula) {
 
 // Inicializa o arquivo de hash encadeado exterior
 void inicializarTabelaHashEncArquivo(FILE *arq) {
-    if (!arq) return;
-    long offsets[TAMANHO_TABELA_HASH_ENC];
-    for (int i = 0; i < TAMANHO_TABELA_HASH_ENC; i++) offsets[i] = OFFSET_INVALIDO;
-    fseek(arq, 0, SEEK_SET);
-    fwrite(offsets, sizeof(long), TAMANHO_TABELA_HASH_ENC, arq);
-    fflush(arq);
+    if (!arq) return; // Se o arquivo não foi aberto corretamente, retorna
+    long offsets[TAMANHO_TABELA_HASH_ENC]; // Vetor para armazenar os ponteiros das listas encadeadas
+    for (int i = 0; i < TAMANHO_TABELA_HASH_ENC; i++) offsets[i] = OFFSET_INVALIDO; // Inicializa todos os ponteiros como inválidos (-1)
+    fseek(arq, 0, SEEK_SET); // Vai para o início do arquivo
+    fwrite(offsets, sizeof(long), TAMANHO_TABELA_HASH_ENC, arq); // Escreve o vetor de ponteiros no arquivo
+    fflush(arq); // Garante que os dados sejam gravados imediatamente
 }
 
 // Insere aluno no hash encadeado exterior (arquivo)
 void inserirAlunoHashEncArquivo(FILE *arq, Aluno aluno) {
-    if (!arq) return;
-    int idx = hashDivisaoEncadeado(aluno.matricula);
+    if (!arq) return; // Se o arquivo não foi aberto corretamente, retorna
+    int idx = hashDivisaoEncadeado(aluno.matricula); // Calcula o índice da gaveta usando hash por divisão
     long head;
-    fseek(arq, idx * sizeof(long), SEEK_SET);
-    fread(&head, sizeof(long), 1, arq);
+    fseek(arq, idx * sizeof(long), SEEK_SET); // Vai até o ponteiro da lista encadeada da gaveta
+    fread(&head, sizeof(long), 1, arq); // Lê o ponteiro do início da lista
     // Busca duplicidade
-    long atual = head;
+    long atual = head; // Começa do início da lista
     NoAluno no;
-    while (atual != OFFSET_INVALIDO) {
-        fseek(arq, atual, SEEK_SET);
-        fread(&no, sizeof(NoAluno), 1, arq);
-        if (no.aluno.matricula == aluno.matricula) {
+    while (atual != OFFSET_INVALIDO) { // Percorre a lista encadeada
+        fseek(arq, atual, SEEK_SET); // Vai até o nó atual
+        fread(&no, sizeof(NoAluno), 1, arq); // Lê o nó
+        if (no.aluno.matricula == aluno.matricula) { // Se já existe matrícula igual
             printf("Já existe aluno com matrícula %d na tabela hash encadeada (arquivo).\n", aluno.matricula);
-            return;
+            return; // Não insere duplicado
         }
-        atual = no.prox;
+        atual = no.prox; // Vai para o próximo nó
     }
     // Insere no início da lista
-    fseek(arq, 0, SEEK_END);
-    long novo_offset = ftell(arq);
+    fseek(arq, 0, SEEK_END); // Vai para o final do arquivo para inserir o novo nó
+    long novo_offset = ftell(arq); // Pega o offset onde será inserido
     NoAluno novoNo;
-    novoNo.aluno = aluno;
-    novoNo.prox = head;
-    fwrite(&novoNo, sizeof(NoAluno), 1, arq);
+    novoNo.aluno = aluno; // Copia os dados do aluno
+    novoNo.prox = head; // O próximo do novo nó aponta para o antigo início da lista
+    fwrite(&novoNo, sizeof(NoAluno), 1, arq); // Escreve o novo nó no arquivo
     // Atualiza ponteiro do slot
-    fseek(arq, idx * sizeof(long), SEEK_SET);
-    fwrite(&novo_offset, sizeof(long), 1, arq);
-    fflush(arq);
-    printf("Aluno inserido na tabela hash encadeada (arquivo, slot %d).\n", idx);
+    fseek(arq, idx * sizeof(long), SEEK_SET); // Volta para o ponteiro da gaveta
+    fwrite(&novo_offset, sizeof(long), 1, arq); // Atualiza o ponteiro para o novo início
+    fflush(arq); // Garante gravação
+    printf("Aluno inserido na tabela hash encadeada (arquivo, slot %d).\n", idx); // Mensagem de sucesso
 }
 
 // Busca aluno no hash encadeado exterior (arquivo)
 int buscarAlunoHashEncArquivo(FILE *arq, int matricula, Aluno *alunoEncontrado) {
-    if (!arq) return 0;
-    int idx = hashDivisaoEncadeado(matricula);
+    if (!arq) return 0; // Se o arquivo não foi aberto corretamente, retorna 0
+    int idx = hashDivisaoEncadeado(matricula); // Calcula o índice da gaveta usando hash por divisão
     long head;
-    fseek(arq, idx * sizeof(long), SEEK_SET);
-    fread(&head, sizeof(long), 1, arq);
-    long atual = head;
+    fseek(arq, idx * sizeof(long), SEEK_SET); // Vai até o ponteiro da lista encadeada da gaveta
+    fread(&head, sizeof(long), 1, arq); // Lê o ponteiro do início da lista
+    long atual = head; // Começa do início da lista
     NoAluno no;
-    while (atual != OFFSET_INVALIDO) {
-        fseek(arq, atual, SEEK_SET);
-        fread(&no, sizeof(NoAluno), 1, arq);
-        if (no.aluno.matricula == matricula) {
-            if (alunoEncontrado) *alunoEncontrado = no.aluno;
-            return 1;
+    while (atual != OFFSET_INVALIDO) { // Percorre a lista encadeada
+        fseek(arq, atual, SEEK_SET); // Vai até o nó atual
+        fread(&no, sizeof(NoAluno), 1, arq); // Lê o nó
+        if (no.aluno.matricula == matricula) { // Se encontrou a matrícula
+            if (alunoEncontrado) *alunoEncontrado = no.aluno; // Copia os dados para o ponteiro de retorno
+            return 1; // Sucesso
         }
-        atual = no.prox;
+        atual = no.prox; // Vai para o próximo nó
     }
-    return 0;
+    return 0; // Não encontrou
 }
 
 // Remove aluno do hash encadeado exterior (arquivo)
 void removerAlunoHashEncArquivo(FILE *arq, int matricula) {
-    if (!arq) return;
-    int idx = hashDivisaoEncadeado(matricula);
+    if (!arq) return; // Se o arquivo não foi aberto corretamente, retorna
+    int idx = hashDivisaoEncadeado(matricula); // Calcula o índice da gaveta usando hash por divisão
     long head;
-    fseek(arq, idx * sizeof(long), SEEK_SET);
-    fread(&head, sizeof(long), 1, arq);
-    long atual = head, anterior = OFFSET_INVALIDO;
+    fseek(arq, idx * sizeof(long), SEEK_SET); // Vai até o ponteiro da lista encadeada da gaveta
+    fread(&head, sizeof(long), 1, arq); // Lê o ponteiro do início da lista
+    long atual = head, anterior = OFFSET_INVALIDO; // Inicializa ponteiros para percorrer a lista
     NoAluno no;
-    while (atual != OFFSET_INVALIDO) {
-        fseek(arq, atual, SEEK_SET);
-        fread(&no, sizeof(NoAluno), 1, arq);
-        if (no.aluno.matricula == matricula) {
+    while (atual != OFFSET_INVALIDO) { // Percorre a lista encadeada
+        fseek(arq, atual, SEEK_SET); // Vai até o nó atual
+        fread(&no, sizeof(NoAluno), 1, arq); // Lê o nó
+        if (no.aluno.matricula == matricula) { // Se encontrou a matrícula
             // Remove nó
             if (anterior == OFFSET_INVALIDO) {
-                // Remove do início
+                // Remove do início: atualiza ponteiro da gaveta para o próximo nó
                 fseek(arq, idx * sizeof(long), SEEK_SET);
                 fwrite(&no.prox, sizeof(long), 1, arq);
             } else {
-                // Remove do meio/fim
+                // Remove do meio/fim: atualiza ponteiro do nó anterior para pular o nó removido
                 NoAluno anteriorNo;
                 fseek(arq, anterior, SEEK_SET);
                 fread(&anteriorNo, sizeof(NoAluno), 1, arq);
@@ -1188,12 +1188,35 @@ void removerAlunoHashEncArquivo(FILE *arq, int matricula) {
                 fseek(arq, anterior, SEEK_SET);
                 fwrite(&anteriorNo, sizeof(NoAluno), 1, arq);
             }
-            fflush(arq);
-            printf("Aluno de matrícula %d removido da tabela hash encadeada (arquivo, slot %d).\n", matricula, idx);
+            fflush(arq); // Garante gravação
+            printf("Aluno de matrícula %d removido da tabela hash encadeada (arquivo, slot %d).\n", matricula, idx); // Mensagem de sucesso
             return;
         }
-        anterior = atual;
-        atual = no.prox;
+        anterior = atual; // Atualiza ponteiro anterior
+        atual = no.prox; // Vai para o próximo nó
     }
-    printf("Aluno de matrícula %d não encontrado na tabela hash encadeada (arquivo).\n", matricula);
+    printf("Aluno de matrícula %d não encontrado na tabela hash encadeada (arquivo).\n", matricula); // Mensagem de erro
+}
+
+// Função auxiliar para encontrar a posição de um aluno no arquivo .dat
+int encontrarPosicaoAlunoArquivo(int matricula) {
+    FILE *arqDat = fopen("alunos.dat", "rb");
+    if (arqDat == NULL) {
+        return -1; // Arquivo não encontrado
+    }
+    
+    Aluno aluno;
+    int posicao = 0;
+    
+    // Percorre o arquivo sequencialmente para encontrar a matrícula
+    while (fread(&aluno, sizeof(Aluno), 1, arqDat)) {
+        if (aluno.matricula == matricula) {
+            fclose(arqDat);
+            return posicao; // Retorna a posição encontrada
+        }
+        posicao++;
+    }
+    
+    fclose(arqDat);
+    return -1; // Não encontrado
 }

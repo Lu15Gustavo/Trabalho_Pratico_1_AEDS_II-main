@@ -30,7 +30,7 @@ void gerarRelatorioOperacoes();
 void limparLog();
 
 // ====== Hash por Divisão com Encadeamento Exterior (persistente em arquivo) ======
-#define TAMANHO_TABELA_HASH_ENC 101
+#define TAMANHO_TABELA_HASH_ENC 50  // Reduzido de 101 para 50
 #define OFFSET_INVALIDO -1L
 
 typedef struct NoAluno {
@@ -44,5 +44,6 @@ void inicializarTabelaHashEncArquivo(FILE *arq);
 void inserirAlunoHashEncArquivo(FILE *arq, Aluno aluno);
 int buscarAlunoHashEncArquivo(FILE *arq, int matricula, Aluno *alunoEncontrado);
 void removerAlunoHashEncArquivo(FILE *arq, int matricula);
+int encontrarPosicaoAlunoArquivo(int matricula);
 
 #endif

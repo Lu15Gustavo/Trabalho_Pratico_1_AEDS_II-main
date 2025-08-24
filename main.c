@@ -125,10 +125,12 @@ void criarBase(int tam) {
         aluno.disciplinas[0] = 100 + (rand()%tam);
         // Grava no hash
         inserirAlunoHashEncArquivo(arqHash, aluno);
-        // Grava no arquivo tradicional
+        // Grava no arquivo tradicional e obtém a posição
+        long posicaoArquivo = ftell(arqDat);
+        int posicaoAluno = posicaoArquivo / sizeof(Aluno);
         fwrite(&aluno, sizeof(Aluno), 1, arqDat);
         int slot = hashDivisaoEncadeado(aluno.matricula);
-        printf("Gaveta %d: %s | Matricula: %d | Email: %s\n", slot, aluno.nome, aluno.matricula, aluno.email);
+        printf("Gaveta %d: %s | Matricula: %d | Email: %s | Posicao .dat: %d\n", slot, aluno.nome, aluno.matricula, aluno.email, posicaoAluno);
     }
     free(vet);
     fclose(arqHash);
@@ -187,11 +189,25 @@ void menuHash() {
                 printf("Email: ");
                 scanf("%s", aluno.email);
                 aluno.qtdDisciplinas = 0;
+                
+                // Primeiro grava no arquivo .dat para obter a posição
+                FILE *arqDat = fopen("alunos.dat", "ab");
+                long posicaoArquivo = -1;
+                int posicaoAluno = -1;
+                if (arqDat != NULL) {
+                    posicaoArquivo = ftell(arqDat);
+                    posicaoAluno = posicaoArquivo / sizeof(Aluno);
+                    fwrite(&aluno, sizeof(Aluno), 1, arqDat);
+                    fclose(arqDat);
+                }
+                
+                // Depois insere no hash
                 FILE *arqHash = fopen("alunos_hash.dat", "rb+");
                 if (arqHash != NULL) {
                     inserirAlunoHashEncArquivo(arqHash, aluno);
                     int slot = hashDivisaoEncadeado(aluno.matricula);
-                    printf("Gaveta %d: %s | Matricula: %d | Email: %s\n", slot, aluno.nome, aluno.matricula, aluno.email);
+                    printf("Gaveta %d: %s | Matricula: %d | Email: %s | Posicao .dat: %d\n", 
+                           slot, aluno.nome, aluno.matricula, aluno.email, posicaoAluno);
                     fclose(arqHash);
                 } else {
                     printf("Arquivo de hash encadeado nao encontrado. Inicialize primeiro!\n");
@@ -207,7 +223,9 @@ void menuHash() {
                     Aluno aluno;
                     if (buscarAlunoHashEncArquivo(arqHash, matricula, &aluno)) {
                         int slot = hashDivisaoEncadeado(matricula);
-                        printf("Aluno encontrado na gaveta %d: %s | Email: %s\n", slot, aluno.nome, aluno.email);
+                        int posicaoArquivo = encontrarPosicaoAlunoArquivo(matricula);
+                        printf("Aluno encontrado na gaveta %d: %s | Email: %s | Posicao .dat: %d\n", 
+                               slot, aluno.nome, aluno.email, posicaoArquivo);
                     } else {
                         printf("Aluno nao encontrado na tabela hash encadeada (arquivo).\n");
                     }
@@ -245,7 +263,9 @@ void menuHash() {
                             while (atual != OFFSET_INVALIDO) {
                                 fseek(arqHash, atual, SEEK_SET);
                                 fread(&no, sizeof(NoAluno), 1, arqHash);
-                                printf("  Nome: %s | Matricula: %d | Email: %s\n", no.aluno.nome, no.aluno.matricula, no.aluno.email);
+                                int posicaoArquivo = encontrarPosicaoAlunoArquivo(no.aluno.matricula);
+                                printf("  Nome: %s | Matricula: %d | Email: %s | Posicao .dat: %d\n", 
+                                       no.aluno.nome, no.aluno.matricula, no.aluno.email, posicaoArquivo);
                                 atual = no.prox;
                             }
                         }
